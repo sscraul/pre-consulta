@@ -112,8 +112,12 @@ app.get('/api/auth/me', authRequired, (req, res) => {
 app.get('/api/public/templates/:id', (req, res) => {
   try {
     const templateId = req.params.id;
-    const template: any = db.prepare(`SELECT * FROM templates WHERE id = ? AND status = 'active'`).get(templateId);
+    const template: any = db.prepare(`SELECT * FROM templates WHERE id = ?`).get(templateId);
     if (!template) return res.status(404).json({ error: 'Formulário indisponível ou desativado.' });
+
+    if (template.status !== 'active') {
+      return res.status(403).json({ error: 'Este questionário ainda está em modo Rascunho. Altere o status para "Publicado (Ativo)" no painel para aceitar respostas de pacientes.' });
+    }
 
     const sections: any[] = db
       .prepare(`SELECT * FROM sections WHERE template_id = ? ORDER BY sort_order ASC`)

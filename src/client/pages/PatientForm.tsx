@@ -137,14 +137,15 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center max-w-md space-y-4">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h2 className="text-xl font-bold text-slate-900">Questionário Indisponível</h2>
+          <h2 className="text-xl font-bold text-slate-900">Questionário Não Encontrado</h2>
           <p className="text-slate-600 text-sm">{errorMsg}</p>
+          <p className="text-xs text-slate-400">Verifique se o questionário está marcado como <strong>"Publicado (Ativo)"</strong> no painel administrativo.</p>
         </div>
       </div>
     );
   }
 
-  if (!template) {
+  if (!template || !template.sections) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500">Carregando formulário...</div>;
   }
 
@@ -285,7 +286,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
             </div>
 
             {/* Blocos de Seções de Perguntas */}
-            {template.sections.map((sec, secIdx) => (
+            {(template.sections || []).map((sec, secIdx) => (
               <div key={sec.id || secIdx} className="space-y-6">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
