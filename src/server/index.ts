@@ -134,6 +134,9 @@ app.get('/api/public/templates/:id', (req, res) => {
         type: q.type,
         required: !!q.required,
         ai_deepen: !!q.ai_deepen,
+        condition_question_id: q.condition_question_id || null,
+        condition_operator: q.condition_operator || null,
+        condition_value: q.condition_value || null,
         options: db
           .prepare(`SELECT * FROM question_options WHERE question_id = ? ORDER BY sort_order ASC`)
           .all(q.id),
@@ -382,19 +385,35 @@ app.get('/health', (_req, res) => {
 // Auxiliares
 // ------------------------------------------------------------
 function saveSectionsAndQuestions(templateId: string, sections: any[]) {
+  const questionIdMap = new Map<string, string>();
+
+  // Pre-mapear os question IDs caso existam referências condicionais
+  sections.forEach((sec) => {
+    if (sec.questions && Array.isArray(sec.questions)) {
+      sec.questions.forEach((q: any) => {
+        const newId = cryptoNativeId();
+        if (q.id) {
+          questionIdMap.set(q.id, newId);
+        }
+      });
+    }
+  });
+
   sections.forEach((sec, sIdx) => {
     const sectionId = cryptoNativeId();
     db.prepare(`INSERT INTO sections (id, template_id, title, description, sort_order) VALUES (?, ?, ?, ?, ?)`).run(
       sectionId,
       templateId,
       sec.title,
-      sec.description || '',
+      sec.description || "",
       sIdx,
     );
 
     if (sec.questions && Array.isArray(sec.questions)) {
       sec.questions.forEach((q: any, qIdx: number) => {
-        const questionId = cryptoNativeId();
+        const questionId = (q.id && questionIdMap.get(q.id)) || cryptoNativeId();
+        const mappedConditionId = q.condition_question_id ? (questionIdMap.get(q.condition_question_id) || q.condition_question_id) : null;
+
         db.prepare(`
           INSERT INTO questions (id, section_id, question_text, help_text, type, required, ai_deepen, condition_question_id, condition_operator, condition_value, sort_order)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -402,11 +421,11 @@ function saveSectionsAndQuestions(templateId: string, sections: any[]) {
           questionId,
           sectionId,
           q.question_text,
-          q.help_text || '',
-          q.type || 'short_text',
+          q.help_text || "",
+          q.type || "short_text",
           q.required ? 1 : 0,
           q.ai_deepen ? 1 : 0,
-          q.condition_question_id || null,
+          mappedConditionId,
           q.condition_operator || null,
           q.condition_value || null,
           qIdx,
@@ -415,8 +434,8 @@ function saveSectionsAndQuestions(templateId: string, sections: any[]) {
         if (q.options && Array.isArray(q.options)) {
           q.options.forEach((opt: any, oIdx: number) => {
             const optId = cryptoNativeId();
-            const label = typeof opt === 'string' ? opt : opt.option_label || opt.label || opt.option_value || opt.value;
-            const val = typeof opt === 'string' ? opt : opt.option_value || opt.value || opt.option_label || opt.label;
+            const label = typeof opt === "string" ? opt : opt.option_label || opt.label || opt.option_value || opt.value || "";
+            const val = typeof opt === "string" ? opt : opt.option_value || opt.value || opt.option_label || opt.label || "";
             db.prepare(`INSERT INTO question_options (id, question_id, option_label, option_value, sort_order) VALUES (?, ?, ?, ?, ?)`).run(
               optId,
               questionId,

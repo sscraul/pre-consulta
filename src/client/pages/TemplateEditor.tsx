@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Plus, Trash2, ArrowLeft, Save, HelpCircle, Layers, CheckCircle2, GripVertical } from 'lucide-react';
+import { Sparkles, Plus, Trash2, ArrowLeft, Save, Layers, GripVertical, GitFork, AlertCircle } from 'lucide-react';
 
 interface Option {
   id?: string;
@@ -8,12 +8,15 @@ interface Option {
 }
 
 interface Question {
-  id?: string;
+  id: string;
   question_text: string;
   help_text?: string;
   type: 'short_text' | 'long_text' | 'number' | 'single_choice' | 'multiple_choice';
   required: boolean;
   ai_deepen: boolean;
+  condition_question_id?: string | null;
+  condition_operator?: 'equals' | 'not_equals' | 'contains' | 'is_answered' | 'is_empty' | string | null;
+  condition_value?: string | null;
   options: Option[];
 }
 
@@ -28,6 +31,63 @@ interface TemplateEditorProps {
   templateId?: string | null;
   onSaved: () => void;
   onCancel: () => void;
+}
+
+function generateClientQuestionId() {
+  return `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function normalizeOption(opt: any, idx: number): Option {
+  if (typeof opt === 'string') {
+    return {
+      option_label: opt,
+      option_value: opt
+    };
+  }
+  const label = opt?.option_label ?? opt?.label ?? opt?.option_value ?? opt?.value ?? `Opção ${idx + 1}`;
+  const val = opt?.option_value ?? opt?.value ?? opt?.option_label ?? opt?.label ?? `Opção ${idx + 1}`;
+  return {
+    id: opt?.id,
+    option_label: String(label),
+    option_value: String(val)
+  };
+}
+
+function normalizeQuestion(q: any): Question {
+  const qType = q?.type || 'short_text';
+  let opts: Option[] = [];
+  if (Array.isArray(q?.options)) {
+    opts = q.options.map(normalizeOption);
+  }
+  if ((qType === 'single_choice' || qType === 'multiple_choice') && opts.length === 0) {
+    opts = [
+      { option_label: 'Opção 1', option_value: 'Opção 1' },
+      { option_label: 'Opção 2', option_value: 'Opção 2' }
+    ];
+  }
+
+  return {
+    id: q?.id || generateClientQuestionId(),
+    question_text: q?.question_text || '',
+    help_text: q?.help_text || '',
+    type: qType,
+    required: Boolean(q?.required),
+    ai_deepen: Boolean(q?.ai_deepen),
+    condition_question_id: q?.condition_question_id || null,
+    condition_operator: q?.condition_operator || 'equals',
+    condition_value: q?.condition_value || '',
+    options: opts
+  };
+}
+
+function normalizeSections(rawSections: any[]): Section[] {
+  if (!Array.isArray(rawSections)) return [];
+  return rawSections.map((sec) => ({
+    id: sec?.id,
+    title: sec?.title || '',
+    description: sec?.description || '',
+    questions: Array.isArray(sec?.questions) ? sec.questions.map(normalizeQuestion) : []
+  }));
 }
 
 export default function TemplateEditor({ templateId, onSaved, onCancel }: TemplateEditorProps) {
@@ -52,8 +112,9 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           setDescription(data.description || '');
           setSpecialty(data.specialty || 'Oftalmologia Geral');
           setStatus(data.status || 'active');
-          setSections(data.sections || []);
-        });
+          setSections(normalizeSections(data.sections || []));
+        })
+        .catch(() => alert('Erro ao carregar questionário'));
     } else {
       // Seção padrão inicial
       setSections([
@@ -62,10 +123,14 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           description: 'Descreva os motivos da consulta',
           questions: [
             {
+              id: generateClientQuestionId(),
               question_text: 'Qual o principal sintoma que o traz ao consultório?',
               type: 'long_text',
               required: true,
               ai_deepen: true,
+              condition_question_id: null,
+              condition_operator: 'equals',
+              condition_value: '',
               options: []
             }
           ]
@@ -88,7 +153,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       setDescription(data.description || '');
       setSpecialty(data.specialty || 'Geral');
       setStatus('draft');
-      setSections(data.sections || []);
+      setSections(normalizeSections(data.sections || []));
     } catch (e) {
       alert('Erro ao gerar com IA');
     } finally {
@@ -110,10 +175,14 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const addQuestion = (secIdx: number) => {
     const newSecs = [...sections];
     newSecs[secIdx].questions.push({
+      id: generateClientQuestionId(),
       question_text: '',
       type: 'short_text',
       required: false,
       ai_deepen: false,
+      condition_question_id: null,
+      condition_operator: 'equals',
+      condition_value: '',
       options: []
     });
     setSections(newSecs);
@@ -148,11 +217,36 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
   const addOption = (secIdx: number, qIdx: number) => {
     const newSecs = [...sections];
-    newSecs[secIdx].questions[qIdx].options.push({
-      option_label: `Opção ${newSecs[secIdx].questions[qIdx].options.length + 1}`,
-      option_value: `Opção ${newSecs[secIdx].questions[qIdx].options.length + 1}`
-    });
+    const currentOptions = newSecs[secIdx].questions[qIdx].options || [];
+    const nextNum = currentOptions.length + 1;
+    newSecs[secIdx].questions[qIdx].options = [
+      ...currentOptions,
+      {
+        option_label: `Opção ${nextNum}`,
+        option_value: `Opção ${nextNum}`
+      }
+    ];
     setSections(newSecs);
+  };
+
+  // Helper para buscar todas as perguntas que antecedem a pergunta atual
+  const getPriorQuestions = (currentSecIdx: number, currentQIdx: number) => {
+    const priors: { id: string; label: string; type: string; options: Option[] }[] = [];
+    sections.forEach((sec, sI) => {
+      sec.questions.forEach((q, qI) => {
+        if (sI < currentSecIdx || (sI === currentSecIdx && qI < currentQIdx)) {
+          if (q.id) {
+            priors.push({
+              id: q.id,
+              label: `${sec.title || `Seção ${sI + 1}`} > ${q.question_text || `Pergunta sem título (${qI + 1})`}`,
+              type: q.type,
+              options: q.options || []
+            });
+          }
+        }
+      });
+    });
+    return priors;
   };
 
   const handleSave = async () => {
@@ -345,121 +439,282 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
             {/* Lista de Perguntas da Seção */}
             <div className="space-y-4">
-              {sec.questions.map((q, qIdx) => (
-                <div key={qIdx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <input
-                      type="text"
-                      value={q.question_text}
-                      onChange={(e) => {
-                        const newSecs = [...sections];
-                        newSecs[secIdx].questions[qIdx].question_text = e.target.value;
-                        setSections(newSecs);
-                      }}
-                      placeholder={`Pergunta ${qIdx + 1}`}
-                      className="flex-1 font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-white"
-                    />
+              {sec.questions.map((q, qIdx) => {
+                const priorQuestions = getPriorQuestions(secIdx, qIdx);
+                const hasCondition = Boolean(q.condition_question_id);
+                const referencedQuestion = priorQuestions.find((p) => p.id === q.condition_question_id);
 
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={q.type}
+                return (
+                  <div key={q.id || qIdx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <input
+                        type="text"
+                        value={q.question_text}
                         onChange={(e) => {
                           const newSecs = [...sections];
-                          newSecs[secIdx].questions[qIdx].type = e.target.value as any;
+                          newSecs[secIdx].questions[qIdx].question_text = e.target.value;
                           setSections(newSecs);
                         }}
-                        className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium text-slate-700"
-                      >
-                        <option value="short_text">Texto Curto</option>
-                        <option value="long_text">Texto Longo</option>
-                        <option value="number">Número</option>
-                        <option value="single_choice">Escolha Única</option>
-                        <option value="multiple_choice">Múltipla Escolha</option>
-                      </select>
+                        placeholder={`Pergunta ${qIdx + 1}`}
+                        className="flex-1 font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                      />
 
-                      <button
-                        onClick={() => {
-                          const newSecs = [...sections];
-                          newSecs[secIdx].questions = newSecs[secIdx].questions.filter((_, i) => i !== qIdx);
-                          setSections(newSecs);
-                        }}
-                        className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={q.type}
+                          onChange={(e) => {
+                            const newType = e.target.value as Question['type'];
+                            const newSecs = [...sections];
+                            newSecs[secIdx].questions[qIdx].type = newType;
+                            if ((newType === 'single_choice' || newType === 'multiple_choice') && (!q.options || q.options.length === 0)) {
+                              newSecs[secIdx].questions[qIdx].options = [
+                                { option_label: 'Opção 1', option_value: 'Opção 1' },
+                                { option_label: 'Opção 2', option_value: 'Opção 2' }
+                              ];
+                            }
+                            setSections(newSecs);
+                          }}
+                          className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium text-slate-700"
+                        >
+                          <option value="short_text">Texto Curto</option>
+                          <option value="long_text">Texto Longo</option>
+                          <option value="number">Número</option>
+                          <option value="single_choice">Escolha Única</option>
+                          <option value="multiple_choice">Múltipla Escolha</option>
+                        </select>
+
+                        <button
+                          onClick={() => {
+                            const newSecs = [...sections];
+                            newSecs[secIdx].questions = newSecs[secIdx].questions.filter((_, i) => i !== qIdx);
+                            setSections(newSecs);
+                          }}
+                          className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Configuração de Aprofundamento por IA e Obrigatoriedade */}
-                  <div className="flex items-center gap-6 pt-2 border-t border-slate-200/60 text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={q.required}
-                        onChange={(e) => {
-                          const newSecs = [...sections];
-                          newSecs[secIdx].questions[qIdx].required = e.target.checked;
-                          setSections(newSecs);
-                        }}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Obrigatória
-                    </label>
+                    {/* Configuração de Aprofundamento por IA e Obrigatoriedade */}
+                    <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-200/60 text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={q.required}
+                          onChange={(e) => {
+                            const newSecs = [...sections];
+                            newSecs[secIdx].questions[qIdx].required = e.target.checked;
+                            setSections(newSecs);
+                          }}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        Obrigatória
+                      </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
-                      <input
-                        type="checkbox"
-                        checked={q.ai_deepen}
-                        onChange={(e) => {
-                          const newSecs = [...sections];
-                          newSecs[secIdx].questions[qIdx].ai_deepen = e.target.checked;
-                          setSections(newSecs);
-                        }}
-                        className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <Sparkles className="w-3.5 h-3.5" /> Aprofundar com IA se relevante
-                    </label>
-                  </div>
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                        <input
+                          type="checkbox"
+                          checked={q.ai_deepen}
+                          onChange={(e) => {
+                            const newSecs = [...sections];
+                            newSecs[secIdx].questions[qIdx].ai_deepen = e.target.checked;
+                            setSections(newSecs);
+                          }}
+                          className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <Sparkles className="w-3.5 h-3.5" /> Aprofundar com IA se relevante
+                      </label>
 
-                  {/* Opções para Múltipla Escolha / Escolha Única */}
-                  {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
-                    <div className="space-y-2 pl-2 border-l-2 border-slate-300 mt-2">
-                      <p className="text-xs font-semibold text-slate-600">Alternativas da Pergunta:</p>
-                      {q.options.map((opt, oIdx) => (
-                        <div key={oIdx} className="flex items-center gap-2">
+                      {/* Botão para ativar/desativar lógica condicional */}
+                      {priorQuestions.length > 0 && (
+                        <label className={`flex items-center gap-1.5 cursor-pointer font-medium px-2.5 py-1 rounded-md border transition ${
+                          hasCondition ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                        }`}>
                           <input
-                            type="text"
-                            value={opt.option_label}
+                            type="checkbox"
+                            checked={hasCondition}
                             onChange={(e) => {
                               const newSecs = [...sections];
-                              newSecs[secIdx].questions[qIdx].options[oIdx].option_label = e.target.value;
-                              newSecs[secIdx].questions[qIdx].options[oIdx].option_value = e.target.value;
+                              if (e.target.checked) {
+                                newSecs[secIdx].questions[qIdx].condition_question_id = priorQuestions[priorQuestions.length - 1].id;
+                                newSecs[secIdx].questions[qIdx].condition_operator = 'equals';
+                                newSecs[secIdx].questions[qIdx].condition_value = priorQuestions[priorQuestions.length - 1].options?.[0]?.option_value || '';
+                              } else {
+                                newSecs[secIdx].questions[qIdx].condition_question_id = null;
+                                newSecs[secIdx].questions[qIdx].condition_operator = 'equals';
+                                newSecs[secIdx].questions[qIdx].condition_value = '';
+                              }
                               setSections(newSecs);
                             }}
-                            className="text-xs border border-slate-300 rounded px-2 py-1 bg-white flex-1"
+                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
                           />
-                          <button
-                            onClick={() => {
-                              const newSecs = [...sections];
-                              newSecs[secIdx].questions[qIdx].options = newSecs[secIdx].questions[qIdx].options.filter((_, i) => i !== oIdx);
-                              setSections(newSecs);
-                            }}
-                            className="text-rose-500 text-xs px-1 hover:underline"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addOption(secIdx, qIdx)}
-                        className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1"
-                      >
-                        + Adicionar Opção
-                      </button>
+                          <GitFork className="w-3.5 h-3.5" /> Exibição Condicional
+                        </label>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Bloco de Configuração da Lógica Condicional */}
+                    {hasCondition && (
+                      <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 text-xs space-y-2.5 mt-2">
+                        <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                          <GitFork className="w-4 h-4 text-amber-600" />
+                          <span>Regra de Exibição Condicional:</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                              Exibir somente se a pergunta:
+                            </label>
+                            <select
+                              value={q.condition_question_id || ''}
+                              onChange={(e) => {
+                                const newSecs = [...sections];
+                                const targetQId = e.target.value;
+                                newSecs[secIdx].questions[qIdx].condition_question_id = targetQId;
+                                const targetQ = priorQuestions.find((p) => p.id === targetQId);
+                                if (targetQ && targetQ.options && targetQ.options.length > 0) {
+                                  newSecs[secIdx].questions[qIdx].condition_value = targetQ.options[0].option_value;
+                                }
+                                setSections(newSecs);
+                              }}
+                              className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
+                            >
+                              {priorQuestions.map((pq) => (
+                                <option key={pq.id} value={pq.id}>
+                                  {pq.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                              Condição:
+                            </label>
+                            <select
+                              value={q.condition_operator || 'equals'}
+                              onChange={(e) => {
+                                const newSecs = [...sections];
+                                newSecs[secIdx].questions[qIdx].condition_operator = e.target.value;
+                                setSections(newSecs);
+                              }}
+                              className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="equals">For igual a</option>
+                              <option value="not_equals">Não for igual a</option>
+                              <option value="contains">Conter / Incluir</option>
+                              <option value="is_answered">For respondida (qualquer valor)</option>
+                              <option value="is_empty">Estiver em branco / não respondida</option>
+                            </select>
+                          </div>
+
+                          {q.condition_operator !== 'is_answered' && q.condition_operator !== 'is_empty' && (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                                Valor esperado:
+                              </label>
+                              {referencedQuestion && referencedQuestion.options && referencedQuestion.options.length > 0 ? (
+                                <select
+                                  value={q.condition_value || ''}
+                                  onChange={(e) => {
+                                    const newSecs = [...sections];
+                                    newSecs[secIdx].questions[qIdx].condition_value = e.target.value;
+                                    setSections(newSecs);
+                                  }}
+                                  className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
+                                >
+                                  <option value="">Selecione uma alternativa...</option>
+                                  {referencedQuestion.options.map((opt, oI) => (
+                                    <option key={oI} value={opt.option_value}>
+                                      {opt.option_label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  placeholder="Digite o valor esperado..."
+                                  value={q.condition_value || ''}
+                                  onChange={(e) => {
+                                    const newSecs = [...sections];
+                                    newSecs[secIdx].questions[qIdx].condition_value = e.target.value;
+                                    setSections(newSecs);
+                                  }}
+                                  className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500"
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-amber-800 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                          Esta pergunta só será exibida no formulário se o paciente selecionar a resposta configurada acima.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Opções para Múltipla Escolha / Escolha Única */}
+                    {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
+                      <div className="space-y-2 pl-3 border-l-2 border-blue-300 mt-3 pt-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-slate-700">Alternativas da Pergunta:</p>
+                          <span className="text-[11px] text-slate-400">
+                            {q.options?.length || 0} {q.options?.length === 1 ? 'alternativa' : 'alternativas'}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {(q.options || []).map((opt, oIdx) => (
+                            <div key={oIdx} className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-400 w-4 text-right">
+                                {oIdx + 1}.
+                              </span>
+                              <input
+                                type="text"
+                                value={opt.option_label || ''}
+                                placeholder={`Texto da Alternativa ${oIdx + 1}`}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const newSecs = [...sections];
+                                  newSecs[secIdx].questions[qIdx].options[oIdx] = {
+                                    ...newSecs[secIdx].questions[qIdx].options[oIdx],
+                                    option_label: val,
+                                    option_value: val
+                                  };
+                                  setSections(newSecs);
+                                }}
+                                className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-slate-900 font-medium flex-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newSecs = [...sections];
+                                  newSecs[secIdx].questions[qIdx].options = newSecs[secIdx].questions[qIdx].options.filter((_, i) => i !== oIdx);
+                                  setSections(newSecs);
+                                }}
+                                className="text-rose-500 hover:text-rose-700 text-xs px-2 py-1 rounded hover:bg-rose-50 transition font-medium"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => addOption(secIdx, qIdx)}
+                          className="text-xs text-blue-600 font-semibold hover:text-blue-800 hover:underline flex items-center gap-1 pt-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Adicionar Opção
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               <button
                 onClick={() => addQuestion(secIdx)}
