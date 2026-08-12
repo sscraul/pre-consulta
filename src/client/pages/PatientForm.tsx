@@ -391,18 +391,45 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
         {/* TELA DE SUCESSO */}
         {step === 'submitted' && (
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center space-y-6">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-6">
+            {/* Foto do Dr. Raul Camargo */}
+            <div className="relative mx-auto w-32 h-32 sm:w-36 sm:h-36">
+              <div className="absolute inset-0 bg-blue-100 rounded-full scale-110 blur-md opacity-60"></div>
+              <img
+                src="/assets/dr-raul-camargo.jpg"
+                alt="Dr. Raul Camargo"
+                className="relative w-full h-full object-cover rounded-full border-4 border-white shadow-lg"
+              />
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                <CheckCircle2 className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-black text-slate-900">Pré-Ficha Enviada com Sucesso!</h2>
-              <p className="text-slate-600 text-xs sm:text-sm max-w-md mx-auto">
-                Obrigado{submittedPatientName ? <>, <strong>{submittedPatientName}</strong></> : null}! Suas respostas já foram organizadas e enviadas para o seu médico.
+
+            <div className="space-y-3">
+              <h2 className="text-2xl font-black text-slate-900">
+                {submittedPatientName ? <>Muito obrigado, {submittedPatientName}!</> : <>Pré-Ficha Enviada!</>}
+              </h2>
+              <p className="text-slate-600 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
+                Suas respostas foram organizadas e já estão com nossa equipe médica. Aguarde com tranquilidade — você será chamado para sua consulta Oftalmológica em breve.
               </p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
-              Ao chegar à clínica, informe na recepção que você já preencheu a pré-ficha digital. Desejamos uma excelente consulta!
+
+            {/* Mensagem de conforto */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100 max-w-md mx-auto space-y-3">
+              <Sparkles className="w-6 h-6 text-blue-500 mx-auto" />
+              <p className="text-sm text-blue-900 font-medium leading-relaxed italic">
+                "Aqui cuidamos de você com dedicação e carinho. Sua saúde ocular é nossa prioridade, e estamos prontos para oferecer o melhor atendimento. Fique à vontade!"
+              </p>
+              <p className="text-xs text-blue-700 font-semibold">
+                — Dr. Raul Camargo
+              </p>
+            </div>
+
+            <div className="text-xs text-slate-500 max-w-md mx-auto space-y-1">
+              <p className="font-medium text-slate-700">
+                💡 Dica: Ao chegar à recepção, informe que já preencheu a pré-ficha digital.
+              </p>
+              <p>Desejamos uma excelente consulta!</p>
             </div>
           </div>
         )}
