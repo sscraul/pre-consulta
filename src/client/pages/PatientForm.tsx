@@ -37,8 +37,12 @@ function getParentAnswerValues(
   if (!parentQ) return [];
   const raw = (currentAnswers[parentQ.id] || '').trim();
   if (!raw) return [];
-  // Múltipla escolha: "A, B, C" => ["A", "B", "C"]
-  // Escolha única / Texto: "A" => ["A"]
+  // Tenta JSON.parse primeiro (novo formato robusto para múltipla escolha)
+  // Fallback para split legado (dados antigos usavam ", ")
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((v: any) => typeof v === 'string' && v.length > 0);
+  } catch { /* não é JSON, continua com fallback */ }
   return raw.split(', ').map((v) => v.trim()).filter((v) => v.length > 0);
 }
 
@@ -530,7 +534,15 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                       {currentQ.type === 'multiple_choice' && (
                         <div className="space-y-2.5">
                           {currentQ.options.map((opt, oIdx) => {
-                            const currentVals = answers[currentQ.id] ? answers[currentQ.id].split(', ') : [];
+                            let currentVals: string[] = [];
+                            try {
+                              const parsed = answers[currentQ.id] ? JSON.parse(answers[currentQ.id]) : [];
+                              if (Array.isArray(parsed)) currentVals = parsed;
+                            } catch { /* fallback para formato legado */ }
+                            // Se não conseguiu parsear como array (dado legado), tenta split
+                            if (currentVals.length === 0 && answers[currentQ.id]) {
+                              currentVals = answers[currentQ.id].split(', ').filter((v) => v.length > 0);
+                            }
                             const isSelected = currentVals.includes(opt.option_value);
                             return (
                               <button
@@ -543,7 +555,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                                   } else {
                                     updated = [...currentVals, opt.option_value];
                                   }
-                                  const valStr = updated.join(', ');
+                                  const valStr = JSON.stringify(updated);
                                   handleAnswerChange(currentQ.id, valStr);
                                   handleDeepenAI(currentQ, valStr);
                                 }}
