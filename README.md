@@ -11,7 +11,7 @@ npm run dev
 
 - Painel: `http://localhost:3000/dashboard`
 - Questionário público: `http://localhost:3000/q/<template-id>`
-- API: `http://localhost:3001`
+- API local: `http://localhost:3001` (servidor de desenvolvimento)
 
 ## Produção / Coolify
 
@@ -25,7 +25,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 ADMIN_USERNAME=
 ADMIN_PASSWORD=
 NODE_ENV=production
-PORT=3001
+PORT=3000
 PUBLIC_ORIGIN=https://preconsulta.raulcamargo.med.br
 ```
 
@@ -33,11 +33,11 @@ No Coolify:
 
 1. Crie uma aplicação apontando para o repositório `sscraul/pre-consulta`.
 2. Use o `Dockerfile` da raiz.
-3. Publique a porta interna `3001`.
+3. Publique a porta interna `3000`.
 4. Configure o domínio `preconsulta.raulcamargo.med.br`.
 5. Ative HTTPS automático.
 6. Configure as variáveis acima no painel do Coolify, nunca no repositório.
-7. Use `/health` como health check.
+7. Use `/health` como health check na porta `3000`.
 
 URLs finais:
 
