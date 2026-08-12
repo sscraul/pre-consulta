@@ -21,3 +21,43 @@
     --ring: 221.2 83.2% 53.3%;
   }
 }
+
+
+/* Animação de slide para perguntas sequenciais */
+.question-card-enter {
+  opacity: 0;
+  transform: translateX(40px);
+}
+.question-card-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+.question-card-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+.question-card-exit-active {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 250ms ease-in, transform 250ms ease-in;
+}
+
+.question-card-enter-left {
+  opacity: 0;
+  transform: translateX(-40px);
+}
+.question-card-enter-left-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+.question-card-exit-right {
+  opacity: 1;
+  transform: translateX(0);
+}
+.question-card-exit-right-active {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 250ms ease-in, transform 250ms ease-in;
+}

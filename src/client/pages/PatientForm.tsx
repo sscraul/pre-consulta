@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, Sparkles, CheckCircle2, ArrowRight, Lock, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ShieldCheck, Sparkles, CheckCircle2, ArrowRight, ArrowLeft, Lock, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -12,6 +12,7 @@ interface Question {
   condition_operator?: string | null;
   condition_value?: string | null;
   options: { option_label: string; option_value: string }[];
+  section_title?: string;
 }
 
 interface Section {
@@ -71,7 +72,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [step, setStep] = useState<'consent' | 'form' | 'submitted'>('consent');
 
-  // Respostas do formulário indexadas por ID da pergunta
+  // Respostas indexadas por ID da pergunta
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [followupAnswers, setFollowupAnswers] = useState<Record<string, string>>({});
   const [deepenQuestions, setDeepenQuestions] = useState<Record<string, string>>({});
@@ -80,6 +81,11 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
   const [submittedPatientName, setSubmittedPatientName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Estado do carrossel de perguntas
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'right' | 'left' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     fetch(`/api/public/templates/${templateId}`)
@@ -105,6 +111,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           }));
         }
         setTemplate(data);
+        setCurrentQIndex(0);
       })
       .catch(() => setErrorMsg('Questionário indisponível, em rascunho ou excluído.'));
   }, [templateId]);
@@ -114,18 +121,40 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
     if (template?.sections) {
       for (const sec of template.sections) {
         for (const q of sec.questions) {
-          map.set(q.id, q);
+          map.set(q.id, { ...q, section_title: sec.title });
         }
       }
     }
     return map;
   }, [template]);
 
+  // Lista linear de todas as perguntas visíveis na ordem correta
+  const visibleQuestions = useMemo(() => {
+    const list: (Question & { section_title: string; section_desc?: string })[] = [];
+    if (!template?.sections) return list;
+
+    for (const sec of template.sections) {
+      for (const q of sec.questions) {
+        if (isQuestionVisible(q, allQuestionsMap, answers)) {
+          list.push({ ...q, section_title: sec.title, section_desc: sec.description });
+        }
+      }
+    }
+    return list;
+  }, [template, allQuestionsMap, answers]);
+
+  // Garantir que currentQIndex não fique fora dos limites quando questions mudam
+  useEffect(() => {
+    if (currentQIndex >= visibleQuestions.length && visibleQuestions.length > 0) {
+      setCurrentQIndex(Math.max(0, visibleQuestions.length - 1));
+    }
+  }, [visibleQuestions.length, currentQIndex]);
+
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  const handleDeepenAI = async (question: Question, answerValue: string) => {
+  const handleDeepenAI = useCallback(async (question: Question, answerValue: string) => {
     if (!question.ai_deepen || !answerValue || answerValue.length < 3) return;
 
     setLoadingDeepen((prev) => ({ ...prev, [question.id]: true }));
@@ -144,6 +173,30 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
     } finally {
       setLoadingDeepen((prev) => ({ ...prev, [question.id]: false }));
     }
+  }, []);
+
+  const goNext = () => {
+    if (currentQIndex < visibleQuestions.length - 1) {
+      setSlideDirection('right');
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentQIndex((prev) => prev + 1);
+        setSlideDirection(null);
+        setTimeout(() => setIsAnimating(false), 50);
+      }, 250);
+    }
+  };
+
+  const goPrev = () => {
+    if (currentQIndex > 0) {
+      setSlideDirection('left');
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentQIndex((prev) => prev - 1);
+        setSlideDirection(null);
+        setTimeout(() => setIsAnimating(false), 50);
+      }, 250);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,22 +204,16 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
     if (!template) return;
 
-    // Validar se todas as perguntas obrigatórias e visíveis foram respondidas
-    for (const sec of template.sections) {
-      for (const q of sec.questions) {
-        if (isQuestionVisible(q, allQuestionsMap, answers) && q.required) {
-          const ans = (answers[q.id] || '').trim();
-          if (!ans) {
-            return alert(`Por favor, responda à pergunta obrigatória: "${q.question_text}"`);
-          }
-        }
-      }
+    // Validar se a pergunta atual está respondida (se obrigatória)
+    const currentQ = visibleQuestions[currentQIndex];
+    if (currentQ && currentQ.required && !(answers[currentQ.id] || '').trim()) {
+      return alert(`Por favor, responda à pergunta obrigatória: "${currentQ.question_text}"`);
     }
 
     setSubmitting(true);
     setErrorMsg('');
 
-    // Formatar payload com perguntas visíveis respondidas
+    // Coletar todas as respostas visíveis
     const answersList: { question: string; answer: string; followupAnswer?: string }[] = [];
     let detectedName = '';
     let detectedPhone = '';
@@ -175,9 +222,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
     for (const sec of template.sections) {
       for (const q of sec.questions) {
-        if (!isQuestionVisible(q, allQuestionsMap, answers)) {
-          continue;
-        }
+        if (!isQuestionVisible(q, allQuestionsMap, answers)) continue;
         const mainAns = answers[q.id];
         if (mainAns && mainAns.trim()) {
           answersList.push({
@@ -187,25 +232,15 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           });
 
           const qL = q.question_text.toLowerCase();
-          if (!detectedName && (qL.includes('nome') || qL.includes('paciente'))) {
-            detectedName = mainAns.trim();
-          }
-          if (!detectedPhone && (qL.includes('telefone') || qL.includes('whatsapp') || qL.includes('celular') || qL.includes('contato'))) {
-            detectedPhone = mainAns.trim();
-          }
-          if (!detectedBirthdate && (qL.includes('nasc') || qL.includes('idade'))) {
-            detectedBirthdate = mainAns.trim();
-          }
-          if (!detectedCpf && qL.includes('cpf')) {
-            detectedCpf = mainAns.trim();
-          }
+          if (!detectedName && (qL.includes('nome') || qL.includes('paciente'))) detectedName = mainAns.trim();
+          if (!detectedPhone && (qL.includes('telefone') || qL.includes('whatsapp') || qL.includes('celular') || qL.includes('contato'))) detectedPhone = mainAns.trim();
+          if (!detectedBirthdate && (qL.includes('nasc') || qL.includes('idade'))) detectedBirthdate = mainAns.trim();
+          if (!detectedCpf && qL.includes('cpf')) detectedCpf = mainAns.trim();
         }
       }
     }
 
-    if (!detectedName && answersList.length > 0) {
-      detectedName = answersList[0].answer;
-    }
+    if (!detectedName && answersList.length > 0) detectedName = answersList[0].answer;
     setSubmittedPatientName(detectedName || 'Paciente');
 
     try {
@@ -242,7 +277,6 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
           <h2 className="text-xl font-bold text-slate-900">Questionário Não Encontrado</h2>
           <p className="text-slate-600 text-sm">{errorMsg}</p>
-          <p className="text-xs text-slate-400">Verifique se o questionário está marcado como <strong>"Publicado (Ativo)"</strong> no painel de administração.</p>
           {onBack && (
             <button onClick={onBack} className="text-xs text-blue-600 font-semibold hover:underline">
               Voltar ao Painel
@@ -260,6 +294,12 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
       </div>
     );
   }
+
+  const currentQ = visibleQuestions[currentQIndex];
+  const totalQuestions = visibleQuestions.length;
+  const isFirst = currentQIndex === 0;
+  const isLast = currentQIndex === totalQuestions - 1;
+  const progress = totalQuestions > 0 ? ((currentQIndex + 1) / totalQuestions) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
@@ -284,7 +324,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
       </header>
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        {/* TELA DE TERMO E CONSENTIMENTO (LGPD) */}
+        {/* TELA DE TERMO E CONSENTIMENTO */}
         {step === 'consent' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
             <div className="space-y-2 text-center">
@@ -329,7 +369,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           </div>
         )}
 
-        {/* TELA DE SUCESSO / CONFIRMAÇÃO */}
+        {/* TELA DE SUCESSO */}
         {step === 'submitted' && (
           <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm text-center space-y-6">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
@@ -347,161 +387,256 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           </div>
         )}
 
-        {/* FORMULÁRIO BASEADO 100% NAS SEÇÕES E PERGUNTAS DO TEMPLATE */}
+        {/* FORMULÁRIO EM CARROSSEL DE PERGUNTAS */}
         {step === 'form' && (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {template.sections.map((sec, secIdx) => {
-              const visibleQuestions = sec.questions.filter((q) => isQuestionVisible(q, allQuestionsMap, answers));
-              if (visibleQuestions.length === 0) return null;
+          <div className="space-y-6">
+            {/* Barra de progresso */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">{template.title}</span>
+                <span className="font-bold text-blue-600">
+                  {currentQIndex + 1} / {totalQuestions}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 text-center">
+                {currentQ?.section_title || ''}
+              </p>
+            </div>
 
-              return (
-                <div key={sec.id || secIdx} className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-5">
-                  <div className="border-b border-slate-100 pb-3">
-                    <h3 className="font-bold text-slate-900 text-base">{sec.title}</h3>
-                    {sec.description && <p className="text-xs text-slate-500 mt-0.5">{sec.description}</p>}
-                  </div>
+            {/* Card da pergunta com animação de slide */}
+            {currentQ && (
+              <div className="relative overflow-hidden">
+                <div
+                  className={`transition-all duration-300 ease-in-out ${
+                    isAnimating
+                      ? slideDirection === 'right'
+                        ? 'opacity-0 -translate-x-10'
+                        : slideDirection === 'left'
+                        ? 'opacity-0 translate-x-10'
+                        : ''
+                      : 'opacity-100 translate-x-0'
+                  }`}
+                >
+                  <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-5">
+                    {/* Cabeçalho da pergunta */}
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">
+                        {currentQ.section_title}
+                      </p>
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                        {currentQ.question_text}
+                        {currentQ.required && <span className="text-rose-500 ml-1">*</span>}
+                      </h3>
+                      {currentQ.help_text && (
+                        <p className="text-xs text-slate-500">{currentQ.help_text}</p>
+                      )}
+                    </div>
 
-                  <div className="space-y-5">
-                    {sec.questions.map((q, qIdx) => {
-                      const isVisible = isQuestionVisible(q, allQuestionsMap, answers);
-                      if (!isVisible) return null;
+                    {/* Campo de resposta */}
+                    <div className="space-y-3">
+                      {currentQ.type === 'short_text' && (
+                        <input
+                          type="text"
+                          required={currentQ.required}
+                          value={answers[currentQ.id] || ''}
+                          onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
+                          onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
+                          placeholder="Digite sua resposta..."
+                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition"
+                          autoFocus
+                        />
+                      )}
 
-                      return (
-                        <div key={q.id || qIdx} className="space-y-2 pt-2 first:pt-0">
-                          <label className="block text-xs font-bold text-slate-800">
-                            {q.question_text} {q.required && <span className="text-rose-500">*</span>}
-                          </label>
-                          {q.help_text && <p className="text-[11px] text-slate-500">{q.help_text}</p>}
+                      {currentQ.type === 'long_text' && (
+                        <textarea
+                          required={currentQ.required}
+                          rows={4}
+                          value={answers[currentQ.id] || ''}
+                          onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
+                          onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
+                          placeholder="Descreva detalhadamente..."
+                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition resize-none"
+                          autoFocus
+                        />
+                      )}
 
-                          {q.type === 'short_text' && (
-                            <input
-                              type="text"
-                              required={q.required}
-                              value={answers[q.id] || ''}
-                              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                              onBlur={(e) => handleDeepenAI(q, e.target.value)}
-                              placeholder="Sua resposta..."
-                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                            />
-                          )}
+                      {currentQ.type === 'number' && (
+                        <input
+                          type="number"
+                          required={currentQ.required}
+                          value={answers[currentQ.id] || ''}
+                          onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
+                          onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
+                          placeholder="0"
+                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition"
+                          autoFocus
+                        />
+                      )}
 
-                          {q.type === 'long_text' && (
-                            <textarea
-                              required={q.required}
-                              rows={3}
-                              value={answers[q.id] || ''}
-                              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                              onBlur={(e) => handleDeepenAI(q, e.target.value)}
-                              placeholder="Descreva detalhadamente..."
-                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                            />
-                          )}
-
-                          {q.type === 'number' && (
-                            <input
-                              type="number"
-                              required={q.required}
-                              value={answers[q.id] || ''}
-                              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                              onBlur={(e) => handleDeepenAI(q, e.target.value)}
-                              placeholder="0"
-                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                            />
-                          )}
-
-                          {q.type === 'single_choice' && (
-                            <div className="space-y-2">
-                              {q.options.map((opt, oIdx) => (
-                                <label key={oIdx} className="flex items-center gap-3 text-xs font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
-                                  <input
-                                    type="radio"
-                                    name={`q_${q.id}`}
-                                    required={q.required && !answers[q.id]}
-                                    value={opt.option_value}
-                                    checked={answers[q.id] === opt.option_value}
-                                    onChange={(e) => {
-                                      handleAnswerChange(q.id, e.target.value);
-                                      handleDeepenAI(q, e.target.value);
-                                    }}
-                                    className="text-blue-600 focus:ring-blue-500"
-                                  />
-                                  <span className="text-slate-900">{opt.option_label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          )}
-
-                          {q.type === 'multiple_choice' && (
-                            <div className="space-y-2">
-                              {q.options.map((opt, oIdx) => {
-                                const current = answers[q.id] ? answers[q.id].split(', ') : [];
-                                const isChecked = current.includes(opt.option_value);
-                                return (
-                                  <label key={oIdx} className="flex items-center gap-3 text-xs font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
-                                    <input
-                                      type="checkbox"
-                                      value={opt.option_value}
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        let updated: string[];
-                                        if (e.target.checked) {
-                                          updated = [...current, opt.option_value];
-                                        } else {
-                                          updated = current.filter((v) => v !== opt.option_value);
-                                        }
-                                        const valStr = updated.join(', ');
-                                        handleAnswerChange(q.id, valStr);
-                                        handleDeepenAI(q, valStr);
-                                      }}
-                                      className="rounded text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <span className="text-slate-900">{opt.option_label}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Loading de aprofundamento da IA */}
-                          {loadingDeepen[q.id] && (
-                            <p className="text-xs text-blue-600 flex items-center gap-1.5 animate-pulse pt-1 font-medium">
-                              <Sparkles className="w-3.5 h-3.5" /> Analisando se são necessários mais detalhes...
-                            </p>
-                          )}
-
-                          {/* Pergunta Complementar Dinâmica da IA */}
-                          {deepenQuestions[q.id] && (
-                            <div className="mt-3 bg-blue-50 border border-blue-200 p-3.5 rounded-xl space-y-2">
-                              <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                                <Sparkles className="w-4 h-4 text-blue-600" /> {deepenQuestions[q.id]}
-                              </p>
-                              <input
-                                type="text"
-                                placeholder="Sua resposta em poucas palavras..."
-                                value={followupAnswers[q.id] || ''}
-                                onChange={(e) => setFollowupAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                                className="w-full text-xs border border-blue-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800"
-                              />
-                            </div>
-                          )}
+                      {currentQ.type === 'single_choice' && (
+                        <div className="space-y-2.5">
+                          {currentQ.options.map((opt, oIdx) => {
+                            const isSelected = answers[currentQ.id] === opt.option_value;
+                            return (
+                              <button
+                                key={oIdx}
+                                type="button"
+                                onClick={() => {
+                                  handleAnswerChange(currentQ.id, opt.option_value);
+                                  handleDeepenAI(currentQ, opt.option_value);
+                                }}
+                                className={`w-full text-left flex items-center gap-3 text-sm font-medium p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-sm'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                    isSelected ? 'border-blue-500 bg-blue-500' : 'border-slate-300'
+                                  }`}
+                                >
+                                  {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                                </div>
+                                <span>{opt.option_label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      )}
+
+                      {currentQ.type === 'multiple_choice' && (
+                        <div className="space-y-2.5">
+                          {currentQ.options.map((opt, oIdx) => {
+                            const currentVals = answers[currentQ.id] ? answers[currentQ.id].split(', ') : [];
+                            const isSelected = currentVals.includes(opt.option_value);
+                            return (
+                              <button
+                                key={oIdx}
+                                type="button"
+                                onClick={() => {
+                                  let updated: string[];
+                                  if (isSelected) {
+                                    updated = currentVals.filter((v) => v !== opt.option_value);
+                                  } else {
+                                    updated = [...currentVals, opt.option_value];
+                                  }
+                                  const valStr = updated.join(', ');
+                                  handleAnswerChange(currentQ.id, valStr);
+                                  handleDeepenAI(currentQ, valStr);
+                                }}
+                                className={`w-full text-left flex items-center gap-3 text-sm font-medium p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-sm'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div
+                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                    isSelected ? 'border-blue-500 bg-blue-500' : 'border-slate-300'
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span>{opt.option_label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Loading de aprofundamento da IA */}
+                      {loadingDeepen[currentQ.id] && (
+                        <p className="text-xs text-blue-600 flex items-center gap-1.5 animate-pulse pt-2 font-medium">
+                          <Sparkles className="w-3.5 h-3.5" /> Analisando se são necessários mais detalhes...
+                        </p>
+                      )}
+
+                      {/* Pergunta Complementar Dinâmica da IA */}
+                      {deepenQuestions[currentQ.id] && (
+                        <div className="mt-3 bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-2">
+                          <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                            <Sparkles className="w-4 h-4 text-blue-600" /> {deepenQuestions[currentQ.id]}
+                          </p>
+                          <input
+                            type="text"
+                            placeholder="Sua resposta em poucas palavras..."
+                            value={followupAnswers[currentQ.id] || ''}
+                            onChange={(e) => setFollowupAnswers((prev) => ({ ...prev, [currentQ.id]: e.target.value }))}
+                            className="w-full text-sm border border-blue-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            )}
 
             {errorMsg && <p className="text-xs font-semibold text-rose-600 text-center">{errorMsg}</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-base rounded-2xl transition shadow-lg shadow-blue-500/20"
-            >
-              {submitting ? 'Enviando Ficha...' : 'Concluir e Enviar Pré-Anamnese'}
-            </button>
-          </form>
+            {/* Botões de navegação */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={goPrev}
+                disabled={isFirst || isAnimating}
+                className="flex-1 py-3.5 bg-white border-2 border-slate-200 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+
+              {isLast ? (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting || isAnimating}
+                  className="flex-[2] py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                >
+                  {submitting ? 'Enviando...' : 'Concluir e Enviar'} <CheckCircle2 className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={isAnimating}
+                  className="flex-[2] py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                >
+                  Próxima <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Botão de voltar ao início (opcional) */}
+            {!isFirst && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSlideDirection('left');
+                  setIsAnimating(true);
+                  setTimeout(() => {
+                    setCurrentQIndex(0);
+                    setSlideDirection(null);
+                    setTimeout(() => setIsAnimating(false), 50);
+                  }, 250);
+                }}
+                className="w-full py-2 text-xs text-slate-500 hover:text-slate-700 font-medium transition"
+              >
+                ← Reiniciar do início
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
