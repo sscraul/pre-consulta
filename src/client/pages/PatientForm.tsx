@@ -30,6 +30,18 @@ interface Template {
   sections: Section[];
 }
 
+function getParentAnswerValues(
+  parentQ: Question | undefined,
+  currentAnswers: Record<string, string>
+): string[] {
+  if (!parentQ) return [];
+  const raw = (currentAnswers[parentQ.id] || '').trim();
+  if (!raw) return [];
+  // Múltipla escolha: "A, B, C" => ["A", "B", "C"]
+  // Escolha única / Texto: "A" => ["A"]
+  return raw.split(', ').map((v) => v.trim()).filter((v) => v.length > 0);
+}
+
 function isQuestionVisible(
   q: Question,
   allQuestionsMap: Map<string, Question>,
@@ -47,23 +59,27 @@ function isQuestionVisible(
     return false;
   }
 
-  const parentAnswer = (currentAnswers[q.condition_question_id] || '').trim();
+  const values = getParentAnswerValues(parentQ, currentAnswers);
+  const hasAnswer = values.length > 0;
   const operator = q.condition_operator || 'equals';
   const expectedValue = (q.condition_value || '').trim();
+  const expectedLower = expectedValue.toLowerCase();
 
   switch (operator) {
     case 'equals':
-      return parentAnswer.toLowerCase() === expectedValue.toLowerCase();
+      // Para múltipla escolha: basta um dos valores selecionados bater com o esperado
+      return values.some((v) => v.toLowerCase() === expectedLower);
     case 'not_equals':
-      return parentAnswer.length > 0 && parentAnswer.toLowerCase() !== expectedValue.toLowerCase();
+      // A pergunta aparece se NENHUM dos valores selecionados for o esperado
+      return hasAnswer && !values.some((v) => v.toLowerCase() === expectedLower);
     case 'contains':
-      return parentAnswer.toLowerCase().includes(expectedValue.toLowerCase());
+      return values.some((v) => v.toLowerCase().includes(expectedLower));
     case 'is_answered':
-      return parentAnswer.length > 0;
+      return hasAnswer;
     case 'is_empty':
-      return parentAnswer.length === 0;
+      return !hasAnswer;
     default:
-      return parentAnswer.toLowerCase() === expectedValue.toLowerCase();
+      return values.some((v) => v.toLowerCase() === expectedLower);
   }
 }
 
