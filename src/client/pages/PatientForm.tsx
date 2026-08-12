@@ -270,6 +270,17 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 bg-white"
                   />
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">CPF (Opcional)</label>
+                  <input
+                    type="text"
+                    value={patientCpf}
+                    onChange={(e) => setPatientCpf(e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
               </div>
             </div>
 

@@ -46,7 +46,7 @@ export async function generateTemplateWithAI(promptText: string) {
       }>;
     }>;
   }>(
-    `Você é um assistente de pré-anamnese clínica para oftalmologia. Crie questionários auxiliares, claros e objetivos. Nunca diagnostique, prescreva ou tome decisões clínicas. Retorne apenas JSON válido no formato: {
+    `Você é um assistente de pré-anamnese clínica para oftalmologia. Crie questionários auxiliares, claros e objetivos. A primeira seção DEVE ser sempre "Identificação do Paciente" com as perguntas padrão (Nome Completo, Telefone/WhatsApp, Data de Nascimento/Idade, CPF opcional). Nunca diagnostique, prescreva ou tome decisões clínicas. Retorne apenas JSON válido no formato: {
   "title": "string",
   "description": "string",
   "specialty": "string",
