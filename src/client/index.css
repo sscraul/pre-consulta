@@ -61,3 +61,19 @@
   transform: translateX(40px);
   transition: opacity 250ms ease-in, transform 250ms ease-in;
 }
+
+
+/* Mobile-first: evita scroll horizontal e zoom de inputs no iOS */
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+input, textarea, select, button {
+  font-size: 16px;
+}
+
+/* Telas pequenas: espaçamentos mais generosos para toque */
+@media (max-width: 640px) {
+  .max-w-2xl.px-4 { padding-left: 0.875rem; padding-right: 0.875rem; }
+}
