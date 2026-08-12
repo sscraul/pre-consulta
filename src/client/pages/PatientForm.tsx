@@ -425,11 +425,26 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
               </p>
             </div>
 
+            {/* Card de conforto — café e suco */}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-2xl border border-amber-200 max-w-md mx-auto space-y-3 shadow-sm">
+              <div className="flex items-center justify-center gap-2 text-2xl">
+                <span>☕</span>
+                <span>🧃</span>
+                <span>🛋️</span>
+              </div>
+              <p className="text-sm text-amber-900 font-bold leading-relaxed">
+                Fique à vontade!
+              </p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Enquanto aguarda sua consulta Oftalmológica, aproveite para relaxar na recepção. <strong>Sirva-se de um café quentinho ou um suco refrescante</strong> — está tudo à sua disposição. ⏳✨
+              </p>
+            </div>
+
             <div className="text-xs text-slate-500 max-w-md mx-auto space-y-1">
               <p className="font-medium text-slate-700">
                 💡 Dica: Ao chegar à recepção, informe que já preencheu a pré-ficha digital.
               </p>
-              <p>Desejamos uma excelente consulta!</p>
+              <p>Desejamos uma excelente consulta! 👁️💙</p>
             </div>
           </div>
         )}
