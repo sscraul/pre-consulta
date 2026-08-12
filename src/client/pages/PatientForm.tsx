@@ -71,18 +71,13 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [step, setStep] = useState<'consent' | 'form' | 'submitted'>('consent');
 
-  // Dados de identificação do paciente
-  const [patientName, setPatientName] = useState('');
-  const [patientPhone, setPatientPhone] = useState('');
-  const [patientBirthdate, setPatientBirthdate] = useState('');
-  const [patientCpf, setPatientCpf] = useState('');
-
-  // Respostas do formulário
+  // Respostas do formulário indexadas por ID da pergunta
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [followupAnswers, setFollowupAnswers] = useState<Record<string, string>>({});
   const [deepenQuestions, setDeepenQuestions] = useState<Record<string, string>>({});
   const [loadingDeepen, setLoadingDeepen] = useState<Record<string, boolean>>({});
 
+  const [submittedPatientName, setSubmittedPatientName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -153,33 +148,65 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName.trim() || !patientPhone.trim()) {
-      return alert('Nome e Telefone são campos obrigatórios para o seu atendimento.');
+
+    if (!template) return;
+
+    // Validar se todas as perguntas obrigatórias e visíveis foram respondidas
+    for (const sec of template.sections) {
+      for (const q of sec.questions) {
+        if (isQuestionVisible(q, allQuestionsMap, answers) && q.required) {
+          const ans = (answers[q.id] || '').trim();
+          if (!ans) {
+            return alert(`Por favor, responda à pergunta obrigatória: "${q.question_text}"`);
+          }
+        }
+      }
     }
 
     setSubmitting(true);
     setErrorMsg('');
 
-    // Formatar payload final apenas com perguntas visíveis
+    // Formatar payload com perguntas visíveis respondidas
     const answersList: { question: string; answer: string; followupAnswer?: string }[] = [];
+    let detectedName = '';
+    let detectedPhone = '';
+    let detectedBirthdate = '';
+    let detectedCpf = '';
 
-    if (template) {
-      for (const sec of template.sections) {
-        for (const q of sec.questions) {
-          if (!isQuestionVisible(q, allQuestionsMap, answers)) {
-            continue;
+    for (const sec of template.sections) {
+      for (const q of sec.questions) {
+        if (!isQuestionVisible(q, allQuestionsMap, answers)) {
+          continue;
+        }
+        const mainAns = answers[q.id];
+        if (mainAns && mainAns.trim()) {
+          answersList.push({
+            question: q.question_text,
+            answer: mainAns.trim(),
+            followupAnswer: followupAnswers[q.id]?.trim() || undefined
+          });
+
+          const qL = q.question_text.toLowerCase();
+          if (!detectedName && (qL.includes('nome') || qL.includes('paciente'))) {
+            detectedName = mainAns.trim();
           }
-          const mainAns = answers[q.id];
-          if (mainAns) {
-            answersList.push({
-              question: q.question_text,
-              answer: mainAns,
-              followupAnswer: followupAnswers[q.id] || undefined
-            });
+          if (!detectedPhone && (qL.includes('telefone') || qL.includes('whatsapp') || qL.includes('celular') || qL.includes('contato'))) {
+            detectedPhone = mainAns.trim();
+          }
+          if (!detectedBirthdate && (qL.includes('nasc') || qL.includes('idade'))) {
+            detectedBirthdate = mainAns.trim();
+          }
+          if (!detectedCpf && qL.includes('cpf')) {
+            detectedCpf = mainAns.trim();
           }
         }
       }
     }
+
+    if (!detectedName && answersList.length > 0) {
+      detectedName = answersList[0].answer;
+    }
+    setSubmittedPatientName(detectedName || 'Paciente');
 
     try {
       const res = await fetch('/api/public/responses', {
@@ -187,10 +214,10 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           template_id: templateId,
-          patient_name: patientName,
-          patient_phone: patientPhone,
-          patient_birthdate: patientBirthdate,
-          patient_cpf: patientCpf,
+          patient_name: detectedName,
+          patient_phone: detectedPhone,
+          patient_birthdate: detectedBirthdate,
+          patient_cpf: detectedCpf,
           answers: answersList
         })
       });
@@ -311,7 +338,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-slate-900">Pré-Ficha Enviada com Sucesso!</h2>
               <p className="text-slate-600 text-xs sm:text-sm max-w-md mx-auto">
-                Obrigado, <strong>{patientName}</strong>! Suas respostas já foram organizadas e enviadas para o seu médico.
+                Obrigado{submittedPatientName ? <>, <strong>{submittedPatientName}</strong></> : null}! Suas respostas já foram organizadas e enviadas para o seu médico.
               </p>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
@@ -320,68 +347,18 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
           </div>
         )}
 
-        {/* FORMULÁRIO COMPLETO */}
+        {/* FORMULÁRIO BASEADO 100% NAS SEÇÕES E PERGUNTAS DO TEMPLATE */}
         {step === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Bloco 1: Identificação do Paciente */}
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-900 text-base border-b border-slate-100 pb-2">Seus Dados Pessoais</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Nome Completo *</label>
-                  <input
-                    type="text"
-                    required
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Seu nome completo"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Telefone / WhatsApp *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={patientPhone}
-                    onChange={(e) => setPatientPhone(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Data de Nascimento / Idade</label>
-                  <input
-                    type="text"
-                    value={patientBirthdate}
-                    onChange={(e) => setPatientBirthdate(e.target.value)}
-                    placeholder="DD/MM/AAAA ou Idade"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                  />
-                </div>
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">CPF (Opcional)</label>
-                  <input
-                    type="text"
-                    value={patientCpf}
-                    onChange={(e) => setPatientCpf(e.target.value)}
-                    placeholder="000.000.000-00"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500 text-slate-900"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bloco 2: Seções do Formulário */}
             {template.sections.map((sec, secIdx) => {
               const visibleQuestions = sec.questions.filter((q) => isQuestionVisible(q, allQuestionsMap, answers));
               if (visibleQuestions.length === 0) return null;
 
               return (
-                <div key={sec.id || secIdx} className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-                  <div>
+                <div key={sec.id || secIdx} className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-5">
+                  <div className="border-b border-slate-100 pb-3">
                     <h3 className="font-bold text-slate-900 text-base">{sec.title}</h3>
-                    {sec.description && <p className="text-xs text-slate-500">{sec.description}</p>}
+                    {sec.description && <p className="text-xs text-slate-500 mt-0.5">{sec.description}</p>}
                   </div>
 
                   <div className="space-y-5">

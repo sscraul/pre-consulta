@@ -172,12 +172,38 @@ app.post('/api/public/ai/deepen-question', async (req, res) => {
 
 app.post('/api/public/responses', async (req, res) => {
   try {
-    const { template_id, patient_name, patient_cpf, patient_phone, patient_birthdate, answers } = req.body;
+    let { template_id, patient_name, patient_cpf, patient_phone, patient_birthdate, answers } = req.body;
 
-    if (!template_id || !patient_name || !patient_phone) {
-      res.status(400).json({ error: 'Nome, Telefone e Template são obrigatórios.' });
+    if (!template_id) {
+      res.status(400).json({ error: 'Template é obrigatório.' });
       return;
     }
+
+    let finalName = (patient_name || '').trim();
+    let finalPhone = (patient_phone || '').trim();
+    let finalBirthdate = (patient_birthdate || '').trim();
+    let finalCpf = (patient_cpf || '').trim();
+
+    if (Array.isArray(answers)) {
+      for (const a of answers) {
+        const qL = (a.question || '').toLowerCase();
+        if (!finalName && (qL.includes('nome') || qL.includes('paciente'))) {
+          finalName = (a.answer || '').trim();
+        }
+        if (!finalPhone && (qL.includes('telefone') || qL.includes('whatsapp') || qL.includes('celular') || qL.includes('contato'))) {
+          finalPhone = (a.answer || '').trim();
+        }
+        if (!finalBirthdate && (qL.includes('nasc') || qL.includes('idade'))) {
+          finalBirthdate = (a.answer || '').trim();
+        }
+        if (!finalCpf && qL.includes('cpf')) {
+          finalCpf = (a.answer || '').trim();
+        }
+      }
+    }
+
+    if (!finalName) finalName = 'Paciente';
+    if (!finalPhone) finalPhone = 'Não informado';
 
     const template: any = db.prepare(`SELECT * FROM templates WHERE id = ? AND status = 'active'`).get(template_id);
     if (!template) {
@@ -186,8 +212,8 @@ app.post('/api/public/responses', async (req, res) => {
     }
 
     const aiResult = await generatePreAnamneseWithAI(
-      { name: patient_name, birthdate: patient_birthdate, phone: patient_phone },
-      answers,
+      { name: finalName, birthdate: finalBirthdate, phone: finalPhone },
+      answers || [],
     );
 
     const responseId = cryptoNativeId();
@@ -198,11 +224,11 @@ app.post('/api/public/responses', async (req, res) => {
     `).run(
       responseId,
       template_id,
-      patient_name,
-      patient_cpf || '',
-      patient_phone,
-      patient_birthdate || '',
-      JSON.stringify(answers),
+      finalName,
+      finalCpf,
+      finalPhone,
+      finalBirthdate,
+      JSON.stringify(answers || []),
       aiResult.patient_summary,
       aiResult.pre_anamnese,
     );
