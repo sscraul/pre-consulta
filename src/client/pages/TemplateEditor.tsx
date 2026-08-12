@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Plus, Trash2, ArrowLeft, Save, HelpCircle, Layers, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Plus, Trash2, ArrowLeft, Save, HelpCircle, Layers, CheckCircle2, GripVertical } from 'lucide-react';
 
 interface Option {
   id?: string;
@@ -40,6 +40,8 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (templateId) {
@@ -115,6 +117,33 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       options: []
     });
     setSections(newSecs);
+  };
+
+  const onDragStart = (secIdx: number) => {
+    setDragIdx(secIdx);
+  };
+
+  const onDragOver = (e: React.DragEvent, secIdx: number) => {
+    e.preventDefault();
+    setDropIdx(secIdx);
+  };
+
+  const onDragLeave = () => {
+    setDropIdx(null);
+  };
+
+  const onDrop = (targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null);
+      setDropIdx(null);
+      return;
+    }
+    const newSections = [...sections];
+    const [moved] = newSections.splice(dragIdx, 1);
+    newSections.splice(targetIdx, 0, moved);
+    setSections(newSections);
+    setDragIdx(null);
+    setDropIdx(null);
   };
 
   const addOption = (secIdx: number, qIdx: number) => {
@@ -263,8 +292,21 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
         </div>
 
         {sections.map((sec, secIdx) => (
-          <div key={secIdx} className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
+          <div
+            key={secIdx}
+            draggable
+            onDragStart={() => onDragStart(secIdx)}
+            onDragOver={(e) => onDragOver(e, secIdx)}
+            onDragLeave={onDragLeave}
+            onDrop={() => onDrop(secIdx)}
+            className={`bg-white rounded-2xl border p-6 space-y-6 shadow-sm transition-all cursor-default ${
+              dragIdx === secIdx ? 'opacity-40 border-blue-300 border-2' : dropIdx === secIdx ? 'border-blue-400 border-2 bg-blue-50/30' : 'border-slate-200'
+            }`}
+          >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing mt-1" title="Arraste para reordenar">
+                <GripVertical className="w-5 h-5" />
+              </div>
               <div className="flex-1 space-y-2">
                 <input
                   type="text"
@@ -429,6 +471,10 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           </div>
         ))}
       </div>
+      {/* Legenda de ordenação */}
+      <p className="text-[11px] text-slate-400 text-center">
+        Arraste as seções pelo ícone <span className="inline-flex align-middle"><GripVertical className="w-3.5 h-3.5" /></span> para reordenar o formulário.
+      </p>
     </div>
   );
 }
