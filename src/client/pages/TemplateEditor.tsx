@@ -100,8 +100,14 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  
+  // Drag and Drop para Seções
+  const [dragSecIdx, setDragSecIdx] = useState<number | null>(null);
+  const [dropSecIdx, setDropSecIdx] = useState<number | null>(null);
+
+  // Drag and Drop para Perguntas
+  const [dragQuestion, setDragQuestion] = useState<{ secIdx: number; qIdx: number } | null>(null);
+  const [dropQuestion, setDropQuestion] = useState<{ secIdx: number; qIdx: number } | null>(null);
 
   useEffect(() => {
     if (templateId) {
@@ -188,31 +194,74 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
     setSections(newSecs);
   };
 
-  const onDragStart = (secIdx: number) => {
-    setDragIdx(secIdx);
+  // Funções de Drag & Drop de Seções
+  const onSectionDragStart = (secIdx: number) => {
+    setDragSecIdx(secIdx);
   };
 
-  const onDragOver = (e: React.DragEvent, secIdx: number) => {
+  const onSectionDragOver = (e: React.DragEvent, secIdx: number) => {
+    // Se estiver arrastando pergunta, não tratar drag de seção
+    if (dragQuestion) return;
     e.preventDefault();
-    setDropIdx(secIdx);
+    setDropSecIdx(secIdx);
   };
 
-  const onDragLeave = () => {
-    setDropIdx(null);
+  const onSectionDragLeave = () => {
+    setDropSecIdx(null);
   };
 
-  const onDrop = (targetIdx: number) => {
-    if (dragIdx === null || dragIdx === targetIdx) {
-      setDragIdx(null);
-      setDropIdx(null);
+  const onSectionDrop = (targetIdx: number) => {
+    if (dragQuestion) return;
+    if (dragSecIdx === null || dragSecIdx === targetIdx) {
+      setDragSecIdx(null);
+      setDropSecIdx(null);
       return;
     }
     const newSections = [...sections];
-    const [moved] = newSections.splice(dragIdx, 1);
+    const [moved] = newSections.splice(dragSecIdx, 1);
     newSections.splice(targetIdx, 0, moved);
     setSections(newSections);
-    setDragIdx(null);
-    setDropIdx(null);
+    setDragSecIdx(null);
+    setDropSecIdx(null);
+  };
+
+  // Funções de Drag & Drop de Perguntas
+  const onQuestionDragStart = (e: React.DragEvent, secIdx: number, qIdx: number) => {
+    e.stopPropagation();
+    setDragQuestion({ secIdx, qIdx });
+  };
+
+  const onQuestionDragOver = (e: React.DragEvent, secIdx: number, qIdx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragQuestion) return;
+    setDropQuestion({ secIdx, qIdx });
+  };
+
+  const onQuestionDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
+    setDropQuestion(null);
+  };
+
+  const onQuestionDrop = (e: React.DragEvent, targetSecIdx: number, targetQIdx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragQuestion) return;
+
+    const { secIdx: srcSecIdx, qIdx: srcQIdx } = dragQuestion;
+    if (srcSecIdx === targetSecIdx && srcQIdx === targetQIdx) {
+      setDragQuestion(null);
+      setDropQuestion(null);
+      return;
+    }
+
+    const newSections = [...sections];
+    const [movedQuestion] = newSections[srcSecIdx].questions.splice(srcQIdx, 1);
+    newSections[targetSecIdx].questions.splice(targetQIdx, 0, movedQuestion);
+
+    setSections(newSections);
+    setDragQuestion(null);
+    setDropQuestion(null);
   };
 
   const addOption = (secIdx: number, qIdx: number) => {
@@ -388,17 +437,17 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
         {sections.map((sec, secIdx) => (
           <div
             key={secIdx}
-            draggable
-            onDragStart={() => onDragStart(secIdx)}
-            onDragOver={(e) => onDragOver(e, secIdx)}
-            onDragLeave={onDragLeave}
-            onDrop={() => onDrop(secIdx)}
+            draggable={!dragQuestion}
+            onDragStart={() => onSectionDragStart(secIdx)}
+            onDragOver={(e) => onSectionDragOver(e, secIdx)}
+            onDragLeave={onSectionDragLeave}
+            onDrop={() => onSectionDrop(secIdx)}
             className={`bg-white rounded-2xl border p-6 space-y-6 shadow-sm transition-all cursor-default ${
-              dragIdx === secIdx ? 'opacity-40 border-blue-300 border-2' : dropIdx === secIdx ? 'border-blue-400 border-2 bg-blue-50/30' : 'border-slate-200'
+              dragSecIdx === secIdx ? 'opacity-40 border-blue-300 border-2' : dropSecIdx === secIdx ? 'border-blue-400 border-2 bg-blue-50/30' : 'border-slate-200'
             }`}
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing mt-1" title="Arraste para reordenar">
+              <div className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing mt-1 p-1 rounded hover:bg-slate-100" title="Arraste para reordenar esta seção">
                 <GripVertical className="w-5 h-5" />
               </div>
               <div className="flex-1 space-y-2">
@@ -444,20 +493,45 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                 const hasCondition = Boolean(q.condition_question_id);
                 const referencedQuestion = priorQuestions.find((p) => p.id === q.condition_question_id);
 
+                const isDraggingThis = dragQuestion?.secIdx === secIdx && dragQuestion?.qIdx === qIdx;
+                const isDroppingHere = dropQuestion?.secIdx === secIdx && dropQuestion?.qIdx === qIdx;
+
                 return (
-                  <div key={q.id || qIdx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                  <div
+                    key={q.id || qIdx}
+                    draggable
+                    onDragStart={(e) => onQuestionDragStart(e, secIdx, qIdx)}
+                    onDragOver={(e) => onQuestionDragOver(e, secIdx, qIdx)}
+                    onDragLeave={onQuestionDragLeave}
+                    onDrop={(e) => onQuestionDrop(e, secIdx, qIdx)}
+                    className={`rounded-xl p-4 border space-y-3 transition-all ${
+                      isDraggingThis
+                        ? 'opacity-30 border-blue-400 border-2 bg-blue-50'
+                        : isDroppingHere
+                        ? 'border-blue-500 border-2 bg-blue-50/50 shadow-md'
+                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <input
-                        type="text"
-                        value={q.question_text}
-                        onChange={(e) => {
-                          const newSecs = [...sections];
-                          newSecs[secIdx].questions[qIdx].question_text = e.target.value;
-                          setSections(newSecs);
-                        }}
-                        placeholder={`Pergunta ${qIdx + 1}`}
-                        className="flex-1 font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-white"
-                      />
+                      <div className="flex items-center gap-2 flex-1">
+                        <div
+                          className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200/60"
+                          title="Arraste para reordenar esta pergunta dentro da seção"
+                        >
+                          <GripVertical className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="text"
+                          value={q.question_text}
+                          onChange={(e) => {
+                            const newSecs = [...sections];
+                            newSecs[secIdx].questions[qIdx].question_text = e.target.value;
+                            setSections(newSecs);
+                          }}
+                          placeholder={`Pergunta ${qIdx + 1}`}
+                          className="flex-1 font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                        />
+                      </div>
 
                       <div className="flex items-center gap-2">
                         <select
@@ -728,7 +802,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       </div>
       {/* Legenda de ordenação */}
       <p className="text-[11px] text-slate-400 text-center">
-        Arraste as seções pelo ícone <span className="inline-flex align-middle"><GripVertical className="w-3.5 h-3.5" /></span> para reordenar o formulário.
+        Arraste as seções ou perguntas pelo ícone <span className="inline-flex align-middle"><GripVertical className="w-3.5 h-3.5" /></span> para reordená-las.
       </p>
     </div>
   );
