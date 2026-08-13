@@ -87,6 +87,20 @@ function isQuestionVisible(
   }
 }
 
+function hasAnswer(value: string | undefined): boolean {
+  const normalized = (value || '').trim();
+  if (!normalized) return false;
+
+  try {
+    const parsed = JSON.parse(normalized);
+    if (Array.isArray(parsed)) return parsed.some((item) => typeof item === 'string' && item.trim());
+  } catch {
+    // Respostas de texto e formato legado continuam válidas.
+  }
+
+  return true;
+}
+
 export default function PatientForm({ templateId, onBack }: { templateId: string; onBack?: () => void }) {
   const [template, setTemplate] = useState<Template | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -195,7 +209,17 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
     }
   }, []);
 
+  const validateCurrentQuestion = () => {
+    const currentQ = visibleQuestions[currentQIndex];
+    if (!currentQ?.required || hasAnswer(answers[currentQ.id])) return true;
+
+    alert(`Por favor, responda à pergunta obrigatória: "${currentQ.question_text}"`);
+    return false;
+  };
+
   const goNext = () => {
+    if (!validateCurrentQuestion()) return;
+
     if (currentQIndex < visibleQuestions.length - 1) {
       setSlideDirection('right');
       setIsAnimating(true);
@@ -225,10 +249,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
     if (!template) return;
 
     // Validar se a pergunta atual está respondida (se obrigatória)
-    const currentQ = visibleQuestions[currentQIndex];
-    if (currentQ && currentQ.required && !(answers[currentQ.id] || '').trim()) {
-      return alert(`Por favor, responda à pergunta obrigatória: "${currentQ.question_text}"`);
-    }
+    if (!validateCurrentQuestion()) return;
 
     setSubmitting(true);
     setErrorMsg('');
