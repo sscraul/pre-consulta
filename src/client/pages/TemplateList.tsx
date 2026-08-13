@@ -63,7 +63,7 @@ export default function TemplateList({ onEditTemplate, onOpenPatientLink }: Temp
             Selecione um questionário para enviar o link ao paciente ou editar sua estrutura.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Links ativos até você desativar</div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Links ativos até você desativar</div>
       </div>
 
       {templates.length === 0 ? (
