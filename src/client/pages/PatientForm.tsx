@@ -292,8 +292,8 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
   if (errorMsg && !template) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center max-w-md space-y-4">
+      <div className="app-shell flex min-h-screen items-center justify-center p-4">
+        <div className="surface-card max-w-md space-y-4 p-8 text-center">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
           <h2 className="text-xl font-bold text-slate-900">Questionário Não Encontrado</h2>
           <p className="text-slate-600 text-sm">{errorMsg}</p>
@@ -309,8 +309,8 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
   if (!template) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="app-shell flex min-h-screen items-center justify-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
       </div>
     );
   }
@@ -322,12 +322,12 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
   const progress = totalQuestions > 0 ? ((currentQIndex + 1) / totalQuestions) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-24 sm:pb-16">
+    <div className="app-shell min-h-screen pb-24 font-sans text-slate-900 sm:pb-16">
       {/* Header Institucional */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-blue-600 rounded-xl text-white shadow-sm">
+            <div className="rounded-xl bg-blue-600 p-2 text-white shadow-lg shadow-blue-600/20">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -343,10 +343,10 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-6">
+      <div className="mx-auto max-w-2xl px-4 pt-6 sm:pt-8">
         {/* TELA DE TERMO E CONSENTIMENTO */}
         {step === 'consent' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="surface-card space-y-6 p-6 sm:p-8">
             <div className="space-y-2 text-center">
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                 <Sparkles className="w-3.5 h-3.5" /> Pré-Anamnese Inteligente
@@ -391,7 +391,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
 
         {/* TELA DE SUCESSO */}
         {step === 'submitted' && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm text-center space-y-6">
+          <div className="surface-card space-y-6 p-6 text-center sm:p-8">
             {/* Foto do Dr. Raul Camargo */}
             <div className="relative mx-auto w-32 h-32 sm:w-36 sm:h-36">
               <div className="absolute inset-0 bg-blue-100 rounded-full scale-110 blur-md opacity-60"></div>
@@ -453,7 +453,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
         {step === 'form' && (
           <div className="space-y-6">
             {/* Barra de progresso */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2">
+            <div className="surface-card space-y-2 p-4">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-700">{template.title}</span>
                 <span className="font-bold text-blue-600">
@@ -485,7 +485,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                       : 'opacity-100 translate-x-0'
                   }`}
                 >
-                  <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
+                  <div className="surface-card space-y-4 p-4 sm:space-y-5 sm:p-6">
                     {/* Cabeçalho da pergunta */}
                     <div className="space-y-1">
                       <p className="text-[10px] sm:text-[11px] font-semibold text-blue-600 uppercase tracking-wider">
@@ -510,7 +510,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                           onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
                           onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
                           placeholder="Digite sua resposta..."
-                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition"
+                          className="field-control w-full px-4 py-3 text-base transition sm:text-sm"
                           autoFocus
                         />
                       )}
@@ -523,7 +523,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                           onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
                           onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
                           placeholder="Descreva detalhadamente..."
-                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition resize-none"
+                          className="field-control w-full resize-none px-4 py-3 text-base transition sm:text-sm"
                           autoFocus
                         />
                       )}
@@ -536,7 +536,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                           onChange={(e) => handleAnswerChange(currentQ.id, e.target.value)}
                           onBlur={(e) => handleDeepenAI(currentQ, e.target.value)}
                           placeholder="0"
-                          className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 transition"
+                          className="field-control w-full px-4 py-3 text-base transition sm:text-sm"
                           autoFocus
                         />
                       )}
@@ -554,7 +554,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                                   handleAnswerChange(currentQ.id, opt.option_value);
                                   handleDeepenAI(currentQ, opt.option_value);
                                 }}
-                                className={`w-full min-h-[52px] text-left flex items-center gap-3 text-sm font-medium p-3.5 rounded-xl border-2 transition-all cursor-pointer touch-manipulation select-none active:scale-[0.98] ${
+                                className={`flex min-h-[52px] w-full cursor-pointer select-none items-center gap-3 rounded-xl border-2 p-3.5 text-left text-sm font-medium transition-all touch-manipulation active:scale-[0.98] ${
                                   isSelected
                                     ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-sm ring-1 ring-blue-200'
                                     : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50'
@@ -603,7 +603,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                                   handleAnswerChange(currentQ.id, valStr);
                                   handleDeepenAI(currentQ, valStr);
                                 }}
-                                className={`w-full min-h-[52px] text-left flex items-center gap-3 text-sm font-medium p-3.5 rounded-xl border-2 transition-all cursor-pointer touch-manipulation select-none active:scale-[0.98] ${
+                                className={`flex min-h-[52px] w-full cursor-pointer select-none items-center gap-3 rounded-xl border-2 p-3.5 text-left text-sm font-medium transition-all touch-manipulation active:scale-[0.98] ${
                                   isSelected
                                     ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-sm ring-1 ring-blue-200'
                                     : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50'
@@ -664,7 +664,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                 type="button"
                 onClick={goPrev}
                 disabled={isFirst || isAnimating}
-                className="flex-1 min-h-[52px] py-3.5 px-3 sm:px-4 bg-white border-2 border-slate-200 hover:border-slate-300 active:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2 touch-manipulation"
+                className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30 touch-manipulation sm:px-4"
               >
                 <ChevronLeft className="w-4 h-4" /> <span className="hidden xs:inline">Anterior</span>
               </button>
@@ -674,7 +674,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting || isAnimating}
-                  className="flex-[2] min-h-[52px] py-3.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 touch-manipulation"
+                  className="primary-action flex min-h-[52px] flex-[2] items-center justify-center gap-2 rounded-2xl px-3 py-3.5 text-sm shadow-lg shadow-blue-500/20 touch-manipulation sm:px-4 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? 'Enviando...' : 'Concluir e Enviar'} <CheckCircle2 className="w-4 h-4" />
                 </button>
@@ -683,7 +683,7 @@ export default function PatientForm({ templateId, onBack }: { templateId: string
                   type="button"
                   onClick={goNext}
                   disabled={isAnimating}
-                  className="flex-[2] min-h-[52px] py-3.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-sm rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 touch-manipulation"
+                  className="primary-action flex min-h-[52px] flex-[2] items-center justify-center gap-2 rounded-2xl px-3 py-3.5 text-sm shadow-lg shadow-blue-500/20 touch-manipulation sm:px-4 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Próxima <ChevronRight className="w-4 h-4" />
                 </button>

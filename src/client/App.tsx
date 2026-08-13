@@ -28,7 +28,14 @@ export default function App() {
   }
 
   if (authenticated === null) {
-    return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-500">Verificando sessão...</div>;
+    return (
+      <div className="app-shell min-h-screen flex items-center justify-center p-6">
+        <div className="surface-card flex items-center gap-3 px-5 py-4 text-sm text-slate-600">
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-600" aria-hidden="true" />
+          Verificando sua sessão...
+        </div>
+      </div>
+    );
   }
 
   if (!authenticated) {
@@ -48,22 +55,22 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setAdminView('templates')}>
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20"><FileText className="w-6 h-6" /></div>
-            <div><h1 className="font-bold text-slate-900 text-lg leading-none">Pré-Ficha Clínica</h1><p className="text-xs text-slate-500 mt-0.5">Pré-anamnese & Inteligência Clínica</p></div>
-          </div>
-          <nav className="flex items-center gap-2">
-            <button onClick={() => setAdminView('templates')} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap flex items-center gap-1.5 ${adminView === 'templates' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}><FileText className="w-4 h-4" /> Quest.</button>
-            <button onClick={() => setAdminView('responses')} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap flex items-center gap-1.5 ${adminView === 'responses' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}><ClipboardList className="w-4 h-4" /> Dossiê</button>
-            <button onClick={() => openTemplateEditor()} className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap flex items-center gap-1.5"><PlusCircle className="w-4 h-4" /> Novo</button>
-            <button onClick={logout} title="Sair" className="p-2 rounded-lg text-slate-500 hover:bg-slate-100"><LogOut className="w-4 h-4" /></button>
+    <div className="app-shell min-h-screen flex flex-col font-sans">
+      <header className="sticky top-0 z-10 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:h-[4.5rem] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-0 lg:px-8">
+          <button className="flex items-center gap-3 text-left" onClick={() => setAdminView('templates')} aria-label="Ir para questionários">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"><FileText className="h-5 w-5" /></div>
+            <div><h1 className="text-base font-bold leading-none text-slate-950 sm:text-lg">Pré-Ficha Clínica</h1><p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">Recepção clínica eficiente</p></div>
+          </button>
+          <nav className="flex items-center gap-1.5 overflow-x-auto sm:gap-2" aria-label="Navegação principal">
+            <button onClick={() => setAdminView('templates')} className={`${adminView === 'templates' ? 'nav-item-active' : 'nav-item'} whitespace-nowrap px-3 sm:px-4`}><FileText className="mr-1.5 inline h-4 w-4" /> Questionários</button>
+            <button onClick={() => setAdminView('responses')} className={`${adminView === 'responses' ? 'nav-item-active' : 'nav-item'} whitespace-nowrap px-3 sm:px-4`}><ClipboardList className="mr-1.5 inline h-4 w-4" /> Dossiê</button>
+            <button onClick={() => openTemplateEditor()} className="primary-action flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 text-xs shadow-md shadow-blue-600/15 sm:px-4 sm:text-sm"><PlusCircle className="h-4 w-4" /> Novo</button>
+            <button onClick={logout} title="Sair" aria-label="Sair" className="logout-action p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"><LogOut className="mx-auto h-4 w-4" /></button>
           </nav>
         </div>
       </header>
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
         {adminView === 'templates' && <TemplateList onEditTemplate={(id) => openTemplateEditor(id)} onOpenPatientLink={openPatientView} />}
         {adminView === 'editor' && <TemplateEditor templateId={activeTemplateId} onSaved={() => setAdminView('templates')} onCancel={() => setAdminView('templates')} />}
         {adminView === 'responses' && <ResponsesList />}

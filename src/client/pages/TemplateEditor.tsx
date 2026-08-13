@@ -312,17 +312,17 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="editor-surface mx-auto max-w-4xl space-y-8 pb-16">
       {/* Barra de Ações Superior */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <button onClick={onCancel} className="text-slate-600 hover:text-slate-900 font-medium flex items-center gap-2">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <button onClick={onCancel} className="flex min-h-11 items-center gap-2 rounded-xl px-3 font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
         <div className="flex items-center gap-3">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 font-medium text-slate-700"
+            className="field-control min-h-11 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
           >
             <option value="active">Publicado (Ativo)</option>
             <option value="draft">Rascunho</option>
@@ -330,7 +330,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition flex items-center gap-2 shadow-sm"
+            className="primary-action flex min-h-11 items-center gap-2 px-5 py-2 text-sm shadow-md shadow-blue-600/15"
           >
             <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar Questionário'}
           </button>
@@ -338,7 +338,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       </div>
 
       {/* Caixa de IA Assistente */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl p-6 text-white shadow-lg space-y-4">
+      <div className="space-y-5 rounded-2xl bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 p-6 text-white shadow-xl shadow-blue-950/20 sm:p-7">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-400/30">
             <Sparkles className="w-5 h-5 text-blue-300" />
@@ -357,12 +357,12 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
             placeholder="Ex: Pré-consulta para cirurgia refrativa (LASIK/PRK)..."
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
-            className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="min-h-11 flex-1 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-base text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:text-sm"
           />
           <button
             onClick={handleGenerateAI}
             disabled={isGeneratingAI || !aiPrompt.trim()}
-            className="px-5 py-2.5 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition flex items-center gap-2 shadow-md"
+            className="min-h-11 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isGeneratingAI ? 'Gerando...' : 'Gerar Template'}
           </button>
@@ -370,8 +370,8 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       </div>
 
       {/* Informações Básicas */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-        <h3 className="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3">Informações do Questionário</h3>
+      <div className="surface-card space-y-5 p-6 sm:p-7">
+        <h3 className="border-b border-slate-100 pb-4 text-lg font-bold tracking-tight text-slate-950">Informações do Questionário</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-700">Título do Questionário</label>
@@ -407,14 +407,14 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
       </div>
 
       {/* Seções e Perguntas */}
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-slate-900 text-xl flex items-center gap-2">
+          <h3 className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-950">
             <Layers className="w-5 h-5 text-blue-600" /> Seções do Formulário ({sections.length})
           </h3>
           <button
             onClick={addSection}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-xl transition flex items-center gap-1.5"
+            className="flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <Plus className="w-4 h-4" /> Adicionar Seção
           </button>
@@ -449,7 +449,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                   setDropTarget(null);
                 }
               }}
-              className={`bg-white rounded-2xl border p-6 space-y-6 shadow-sm transition-all ${
+              className={`surface-card space-y-6 p-5 transition-all sm:p-6 ${
                 isDraggingThisSec
                   ? 'opacity-40 border-blue-400 border-2'
                   : isDroppingThisSec
@@ -568,7 +568,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                           setDropTarget(null);
                         }
                       }}
-                      className={`rounded-xl p-4 border space-y-3 transition-all ${
+                      className={`space-y-3 rounded-xl border p-4 transition-all ${
                         isDraggingThisQ
                           ? 'opacity-30 border-blue-400 border-2 bg-blue-50'
                           : isDroppingThisQ
@@ -697,9 +697,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
                         {/* Botão para ativar/desativar lógica condicional */}
                         {priorQuestions.length > 0 && (
-                          <label className={`flex items-center gap-1.5 cursor-pointer font-medium px-2.5 py-1 rounded-md border transition ${
-                            hasCondition ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                          }`}>
+                          <label className={`conditional-toggle flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition ${hasCondition ? 'conditional-toggle-active' : ''}`}>
                             <input
                               type="checkbox"
                               checked={hasCondition}

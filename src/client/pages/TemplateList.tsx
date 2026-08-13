@@ -50,69 +50,71 @@ export default function TemplateList({ onEditTemplate, onOpenPatientLink }: Temp
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500">Carregando questionários...</div>;
+    return <div className="surface-card flex items-center justify-center gap-3 p-10 text-sm text-slate-500"><span className="loading-dot animate-pulse" /> Carregando questionários...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-7">
+      <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Questionários & Templates</h2>
-          <p className="text-sm text-slate-500">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Recepção clínica</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Questionários</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
             Selecione um questionário para enviar o link ao paciente ou editar sua estrutura.
           </p>
         </div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Links ativos até você desativar</div>
       </div>
 
       {templates.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 border border-slate-200 text-center max-w-lg mx-auto space-y-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+        <div className="surface-card mx-auto max-w-xl space-y-5 p-8 text-center sm:p-12">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-inner">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900">Nenhum questionário cadastrado</h3>
-          <p className="text-slate-500 text-sm">
+          <h3 className="text-lg font-semibold text-slate-950">Comece pela sua primeira ficha</h3>
+          <p className="text-sm leading-6 text-slate-500">
             Crie seu primeiro questionário do zero ou peça ajuda para a IA gerar um template em poucos segundos.
           </p>
           <button
             onClick={() => onEditTemplate()}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition"
+            className="primary-action px-5 py-2.5 text-sm shadow-md shadow-blue-600/15"
           >
             Criar Primeiro Questionário
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {templates.map((tpl) => (
             <div
               key={tpl.id}
-              className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-all p-6 flex flex-col justify-between shadow-sm hover:shadow-md"
+              className="surface-card group flex flex-col justify-between p-5 transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[var(--shadow-card-hover)] sm:p-6"
             >
               <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <span className="status-pill border-blue-100 bg-blue-50 text-blue-700">
                     {tpl.specialty || 'Geral'}
                   </span>
                   <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    className={`status-pill ${
                       tpl.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-amber-50 text-amber-700'
+                        ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                        : 'border-amber-100 bg-amber-50 text-amber-700'
                     }`}
                   >
                     {tpl.status === 'active' ? 'Ativo' : 'Rascunho'}
                   </span>
                 </div>
 
-                <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
-                <p className="text-slate-600 text-sm line-clamp-3 mb-6">
+                <h3 className="mb-2 text-lg font-bold tracking-tight text-slate-950">{tpl.title}</h3>
+                <p className="mb-6 line-clamp-3 text-sm leading-6 text-slate-600">
                   {tpl.description || 'Sem descrição cadastrada.'}
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="space-y-3 border-t border-slate-100 pt-4">
                 <button
                   onClick={() => copyPatientLink(tpl.id)}
-                  className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 border border-blue-200"
+                  className="secondary-action flex min-h-11 w-full items-center justify-center gap-2 border border-blue-200 px-3 py-2 text-sm transition"
                 >
                   {copiedId === tpl.id ? (
                     <>
@@ -128,7 +130,7 @@ export default function TemplateList({ onEditTemplate, onOpenPatientLink }: Temp
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <button
                     onClick={() => onOpenPatientLink(tpl.id)}
-                    className="text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1 py-1"
+                    className="flex min-h-11 items-center gap-1 py-1 font-semibold text-slate-600 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   >
                     <ExternalLink className="w-3.5 h-3.5" /> Testar Formulário
                   </button>
@@ -136,14 +138,14 @@ export default function TemplateList({ onEditTemplate, onOpenPatientLink }: Temp
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => onEditTemplate(tpl.id)}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+                      className="min-h-10 min-w-10 rounded-xl p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       title="Editar"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(tpl.id)}
-                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                      className="min-h-10 min-w-10 rounded-xl p-1.5 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                       title="Excluir"
                     >
                       <Trash2 className="w-4 h-4" />
