@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ClipboardList, Copy, Check, RefreshCw, Trash2, User, Phone, Calendar, Sparkles, FileText } from 'lucide-react';
+import { groupResponsesByDate } from '../utils/responseGrouping';
 
 interface PatientResponse {
   id: string;
@@ -25,9 +26,10 @@ export default function ResponsesList() {
     try {
       const res = await fetch('/api/responses');
       const data = await res.json();
-      setResponses(data);
-      if (data.length > 0 && !selectedResponse) {
-        setSelectedResponse(data[0]);
+      const orderedResponses = groupResponsesByDate<PatientResponse>(data).flatMap((group) => group.responses);
+      setResponses(orderedResponses);
+      if (orderedResponses.length > 0 && !selectedResponse) {
+        setSelectedResponse(orderedResponses[0]);
       }
     } catch (e) {
       console.error(e);
@@ -104,29 +106,36 @@ export default function ResponsesList() {
               <h3 className="mt-1 text-sm font-bold text-slate-950">Respondidos ({responses.length})</h3>
             </div>
             <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-              {responses.map((resp) => {
-                const isSelected = selectedResponse?.id === resp.id;
-                return (
-                  <button
-                    key={resp.id}
-                    onClick={() => setSelectedResponse(resp)}
-                    className={`min-h-[88px] w-full p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
-                      isSelected ? 'bg-blue-50/80 ring-1 ring-inset ring-blue-200' : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-950">{resp.patient_name}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {new Date(resp.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="line-clamp-1 text-xs text-slate-500">{resp.template_title || 'Questionário'}</p>
-                    <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-blue-700">
-                      <Phone className="w-3 h-3" /> {resp.patient_phone}
-                    </p>
-                  </button>
-                );
-              })}
+              {groupResponsesByDate(responses).map((group) => (
+                <React.Fragment key={group.label}>
+                  <div className="sticky top-0 z-10 border-y border-slate-100 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {group.label}
+                  </div>
+                  {group.responses.map((resp) => {
+                    const isSelected = selectedResponse?.id === resp.id;
+                    return (
+                      <button
+                        key={resp.id}
+                        onClick={() => setSelectedResponse(resp)}
+                        className={`min-h-[88px] w-full p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+                          isSelected ? 'bg-blue-50/80 ring-1 ring-inset ring-blue-200' : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-slate-950">{resp.patient_name}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(resp.created_at.replace(' ', 'T') + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="line-clamp-1 text-xs text-slate-500">{resp.template_title || 'Questionário'}</p>
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-blue-700">
+                          <Phone className="w-3 h-3" /> {resp.patient_phone}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </div>
           </div>
 
@@ -178,7 +187,7 @@ export default function ResponsesList() {
                     <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-blue-600" /> Resumo Executivo da IA
                     </p>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                    <p className="whitespace-pre-wrap text-xs text-slate-700 leading-relaxed font-medium">
                       {selectedResponse.patient_summary}
                     </p>
                   </div>
@@ -209,7 +218,7 @@ export default function ResponsesList() {
                   </div>
 
                   <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-5 font-mono text-xs leading-relaxed text-slate-100 shadow-inner shadow-black/30">
-                    {selectedResponse.pre_anamnese}
+                    <span className="whitespace-pre-wrap">{selectedResponse.pre_anamnese}</span>
                   </div>
                 </div>
 

@@ -92,7 +92,7 @@ export async function generatePreAnamneseWithAI(
     .join('\n');
 
   const result = await generateJson<{ patient_summary: string; pre_anamnese: string }>(
-    `Você é um médico sintetizador de pré-anamnese. Organize fielmente as informações declaradas, sem inventar dados, diagnosticar, prescrever ou sugerir condutas. Retorne somente JSON válido no formato { "patient_summary": "2-3 frases", "pre_anamnese": "texto profissional estruturado para copiar no prontuário" }. Inclua ao final da pré-anamnese: "Material auxiliar gerado por IA, sujeito à revisão e confirmação médica."`,
+    `Você é um médico sintetizador de pré-anamnese. Organize TODAS as informações declaradas, sem omitir respostas, inventar dados, diagnosticar, prescrever ou sugerir condutas. Retorne somente JSON válido no formato { "patient_summary": "resumo completo com uma informação por linha", "pre_anamnese": "texto profissional completo, estruturado e com quebras de linha para copiar no prontuário" }. Inclua identificação, todas as respostas e todos os detalhamentos. Use quebras de linha reais entre campos e seções. Inclua ao final da pré-anamnese: "Material auxiliar gerado por IA, sujeito à revisão e confirmação médica."`,
     `Paciente: ${patientInfo.name}\nData de nascimento: ${patientInfo.birthdate || 'não informado'}\nTelefone: ${patientInfo.phone}\n\nRespostas declaradas:\n${formattedAnswers}`,
   );
 
@@ -159,10 +159,10 @@ function generatePreAnamneseFallback(
   const answerLines = answersList
     .map((answer) => `• ${answer.question}: ${answer.answer}${answer.followupAnswer ? ` -> ${answer.followupAnswer}` : ''}`)
     .join('\n');
-  const preAnamnese = `=== PRÉ-ANAMNESE CLÍNICA ===\nPaciente: ${patientInfo.name}\nData de Nascimento: ${patientInfo.birthdate || 'Não informado'} | Tel: ${patientInfo.phone}\n\nRESPOSTAS DECLARADAS\n${answerLines}\n\nMaterial auxiliar gerado por IA, sujeito à revisão e confirmação médica.`;
+  const preAnamnese = `=== PRÉ-ANAMNESE CLÍNICA ===\n\nIDENTIFICAÇÃO\nPaciente: ${patientInfo.name}\nData de Nascimento: ${patientInfo.birthdate || 'Não informado'}\nTelefone: ${patientInfo.phone}\n\nRESPOSTAS DECLARADAS\n${answerLines}\n\nMaterial auxiliar gerado por IA, sujeito à revisão e confirmação médica.`;
 
   return {
-    patient_summary: `Paciente ${patientInfo.name} respondeu à pré-consulta. Queixa e histórico conforme respostas declaradas no formulário.`,
+    patient_summary: `Paciente: ${patientInfo.name}\nData de Nascimento: ${patientInfo.birthdate || 'Não informado'}\nTelefone: ${patientInfo.phone}\n\n${answerLines}`,
     pre_anamnese: preAnamnese,
   };
 }
